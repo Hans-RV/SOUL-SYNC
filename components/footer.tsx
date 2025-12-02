@@ -12,7 +12,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-8 pt-8 border-t border-border/40 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
           <p>© {new Date().getFullYear()} SOUL SYNC. All rights reserved.</p>
-          <p>Made under GENVO LABS</p>
+          <p>Developed under GENVO LABS</p>
         </div>
       </div>
     </footer>
