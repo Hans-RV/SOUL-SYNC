@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { MessageCircle, BarChart3, Sparkles, Heart, Brain, Zap } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
+import { Footer } from "@/components/footer"
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null)
@@ -149,6 +150,9 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </section>
+
+      {/* Footer */}
+      <Footer />
     </main>
   )
 }
