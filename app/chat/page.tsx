@@ -3,13 +3,13 @@
 import type React from "react"
 
 import { useEffect, useState, useRef } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/lib/auth/auth-context"
+import { AuthGuard } from "@/components/auth-guard"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Send, AlertTriangle, Heart } from "lucide-react"
-import type { User } from "@supabase/supabase-js"
 import { MoodSelector, type MoodOption } from "@/components/mood-selector"
 import { ReflectivePrompt } from "@/components/reflective-prompt"
 
@@ -21,7 +21,12 @@ interface Message {
   timestamp: Date
 }
 
-const CRISIS_KEYWORDS = ["suicide", "kill myself", "harm", "overdose", "end it", "can't take it"]
+const CRISIS_KEYWORDS = [
+  "suicide", "suicidal", "suicde", "kill myself", "end my life", "want to die",
+  "don't want to live", "self harm", "self-harm", "hurt myself", "cutting",
+  "overdose", "end it all", "no reason to live", "better off dead", "kill me",
+  "take my life", "harm myself", "end it", "can't take it"
+]
 const CRISIS_RESOURCES = [
   { name: "National Suicide Prevention Lifeline", number: "988", url: "https://988lifeline.org" },
   { name: "Crisis Text Line", number: "Text HOME to 741741", url: "https://www.crisistextline.org" },
@@ -32,7 +37,6 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
   const [showCrisisAlert, setShowCrisisAlert] = useState(false)
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [showMoodSelector, setShowMoodSelector] = useState(true)
@@ -40,44 +44,7 @@ export default function ChatPage() {
   const [showReflectivePrompt, setShowReflectivePrompt] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-    }
-
-    getUser()
-
-    // Load chat history if user is logged in
-    const loadChatHistory = async () => {
-      if (user) {
-        const { data } = await supabase
-          .from("chat_messages")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: true })
-          .limit(50)
-
-        if (data) {
-          setMessages(
-            data.map((msg) => ({
-              id: msg.id,
-              text: msg.message,
-              sender: msg.sender_type as "user" | "bot",
-              emotion: msg.emotion_detected,
-              timestamp: new Date(msg.created_at),
-            })),
-          )
-        }
-      }
-    }
-
-    loadChatHistory()
-  }, [supabase, user])
+  const { user } = useAuth()
 
   useEffect(() => {
     if (shouldAutoScroll) {
@@ -131,15 +98,6 @@ export default function ChatPage() {
     }
 
     try {
-      // Save user message to database if logged in
-      if (user) {
-        await supabase.from("chat_messages").insert({
-          user_id: user.id,
-          message: input,
-          sender_type: "user",
-        })
-      }
-
       // Call Groq API for response
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -165,16 +123,6 @@ export default function ChatPage() {
       }
 
       setMessages((prev) => [...prev, botMessage])
-
-      // Save bot message to database if logged in
-      if (user) {
-        await supabase.from("chat_messages").insert({
-          user_id: user.id,
-          message: data.response,
-          sender_type: "bot",
-          emotion_detected: data.emotion,
-        })
-      }
     } catch (error) {
       console.error("Error:", error)
       const errorMessage: Message = {
@@ -210,21 +158,24 @@ export default function ChatPage() {
 
   if (showMoodSelector) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-background to-primary/5 py-8">
-        <div className="max-w-2xl mx-auto px-4">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-primary mb-2">Chat with SOUL SYNC</h1>
-            <p className="text-muted-foreground">Your compassionate AI mental health companion</p>
+      <AuthGuard>
+        <main className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-background to-primary/5 py-8">
+          <div className="max-w-2xl mx-auto px-4">
+            <div className="mb-8 text-center">
+              <h1 className="text-3xl font-bold text-primary mb-2">Chat with SOUL SYNC</h1>
+              <p className="text-muted-foreground">Your compassionate AI mental health companion</p>
+            </div>
+            <MoodSelector onMoodSelect={handleMoodSelect} />
           </div>
-          <MoodSelector onMoodSelect={handleMoodSelect} />
-        </div>
-      </main>
+        </main>
+      </AuthGuard>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background to-primary/5 py-8">
-      <div className="max-w-2xl mx-auto px-4 h-[calc(100vh-8rem)] flex flex-col gap-4">
+    <AuthGuard>
+      <main className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-background to-primary/5 py-4">
+      <div className="max-w-2xl mx-auto px-4 h-[calc(100vh-6rem)] flex flex-col gap-3">
         {/* Header */}
         <div className="flex-shrink-0">
           <h1 className="text-3xl font-bold text-primary mb-2">Chat with SOUL SYNC</h1>
@@ -338,16 +289,17 @@ export default function ChatPage() {
           </Button>
         </form>
 
-        {!user && (
+        {user?.isGuest && (
           <p className="text-center text-xs text-muted-foreground flex-shrink-0">
-            Chat history is saved only for logged-in users.{" "}
-            <a href="/auth/sign-up" className="text-primary hover:underline">
-              Sign up
+            You're chatting as a guest. Your chat history won't be saved.{" "}
+            <a href="/auth/login" className="text-primary hover:underline">
+              Sign in with Google
             </a>{" "}
-            to save your conversations.
+            for a personalized experience.
           </p>
         )}
       </div>
     </main>
+    </AuthGuard>
   )
 }

@@ -1,44 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/lib/auth/auth-context"
 import { Button } from "@/components/ui/button"
-import { Menu, X, LogOut, Home, MessageCircle, BarChart3, Sparkles, Settings } from "lucide-react"
-import type { User } from "@supabase/supabase-js"
-import { SoulSyncLogo } from "@/components/soul-sync-logo"
+import { Menu, X, LogOut, Home, MessageCircle, BarChart3, Sparkles } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  const { user, loading, signOut } = useAuth()
 
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
-    }
-
-    getUser()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription?.unsubscribe()
-  }, [supabase])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
+  const handleLogout = () => {
+    signOut()
     router.push("/")
   }
 
@@ -49,10 +26,6 @@ export function Navigation() {
     { href: "/self-care", label: "Self-Care", icon: Sparkles },
   ]
 
-  if (user) {
-    navItems.push({ href: "/admin", label: "Admin", icon: Settings })
-  }
-
   return (
     <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -62,9 +35,13 @@ export function Navigation() {
             href="/"
             className="flex items-center gap-2 font-bold text-xl text-primary hover:opacity-80 transition-opacity"
           >
-            <div className="w-8 h-8">
-              <SoulSyncLogo animated className="text-primary" />
-            </div>
+            <Image 
+              src="/logoss.png" 
+              alt="SOUL SYNC Logo" 
+              width={32} 
+              height={32}
+              className="object-contain"
+            />
             <span className="hidden sm:inline">SOUL SYNC</span>
           </Link>
 
@@ -96,16 +73,9 @@ export function Navigation() {
                 Logout
               </Button>
             ) : (
-              <>
-                <Link href="/auth/login">
-                  <Button variant="ghost" className="text-foreground hover:text-primary hover:bg-primary/10">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link href="/auth/sign-up">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">Sign Up</Button>
-                </Link>
-              </>
+              <Link href="/auth/login">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">Get Started</Button>
+              </Link>
             )}
           </div>
 
@@ -151,16 +121,9 @@ export function Navigation() {
                   Logout
                 </Button>
               ) : (
-                <>
-                  <Link href="/auth/login" className="block">
-                    <Button variant="ghost" className="w-full text-foreground hover:text-primary hover:bg-primary/10">
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link href="/auth/sign-up" className="block">
-                    <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Sign Up</Button>
-                  </Link>
-                </>
+                <Link href="/auth/login" className="block">
+                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Get Started</Button>
+                </Link>
               )}
             </div>
           </div>

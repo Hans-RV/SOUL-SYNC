@@ -46,13 +46,21 @@ export function BackgroundSounds() {
   const [isOpen, setIsOpen] = useState(false)
   const [activeSound, setActiveSound] = useState<string | null>(null)
   const [volume, setVolume] = useState([50])
+  const [isMuted, setIsMuted] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = volume[0] / 100
+      audioRef.current.volume = isMuted ? 0 : volume[0] / 100
     }
-  }, [volume])
+  }, [volume, isMuted])
+
+  const handleMuteToggle = () => {
+    setIsMuted(!isMuted)
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? volume[0] / 100 : 0
+    }
+  }
 
   const handleSoundToggle = (sound: Sound) => {
     if (activeSound === sound.id) {
@@ -88,10 +96,11 @@ export function BackgroundSounds() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsOpen(false)}
+                onClick={handleMuteToggle}
                 className="h-6 w-6 hover:bg-primary/10"
+                title={isMuted ? "Unmute" : "Mute"}
               >
-                <VolumeX className="h-3 w-3" />
+                {isMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
               </Button>
             </div>
 

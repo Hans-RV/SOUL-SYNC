@@ -3,8 +3,8 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/lib/auth/auth-context"
+import { AuthGuard } from "@/components/auth-guard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,7 +23,6 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { Calendar, TrendingUp, Heart, AlertCircle, Flame, Award } from "lucide-react"
-import type { User } from "@supabase/supabase-js"
 
 interface MoodEntry {
   id: string
@@ -35,9 +34,10 @@ interface MoodEntry {
 
 const MOOD_LABELS = ["Terrible", "Bad", "Okay", "Good", "Great"]
 const MOOD_COLORS = ["#ef4444", "#f97316", "#eab308", "#84cc16", "#22c55e"]
+const STORAGE_KEY = "soul-sync-mood-entries"
 
 export default function MoodTrackerPage() {
-  const [user, setUser] = useState<User | null>(null)
+  const { user } = useAuth()
   const [moodScore, setMoodScore] = useState(5)
   const [notes, setNotes] = useState("")
   const [entries, setEntries] = useState<MoodEntry[]>([])
@@ -45,47 +45,58 @@ export default function MoodTrackerPage() {
   const [error, setError] = useState("")
   const [streak, setStreak] = useState(0)
   const [totalDays, setTotalDays] = useState(0)
-  const router = useRouter()
-  const supabase = createClient()
 
+  // Load entries from localStorage on mount
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        router.push("/auth/login")
-        return
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      try {
+        const parsedEntries = JSON.parse(stored)
+        setEntries(parsedEntries)
+        setStreak(calculateStreak(parsedEntries))
+        setTotalDays(calculateTotalDays(parsedEntries))
+      } catch {
+        localStorage.removeItem(STORAGE_KEY)
       }
-
-      setUser(user)
-      await loadMoodEntries(user.id)
     }
-
-    getUser()
-  }, [supabase, router])
+  }, [])
 
   const calculateStreak = (entries: MoodEntry[]) => {
     if (entries.length === 0) return 0
 
-    const sortedEntries = [...entries].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )
+    // Get unique dates (normalized to start of day)
+    const uniqueDates = [...new Set(
+      entries.map((entry) => {
+        const date = new Date(entry.created_at)
+        date.setHours(0, 0, 0, 0)
+        return date.getTime()
+      })
+    )].sort((a, b) => b - a) // Sort descending (newest first)
 
-    let currentStreak = 0
-    let lastDate = new Date()
-    lastDate.setHours(0, 0, 0, 0)
+    if (uniqueDates.length === 0) return 0
 
-    for (const entry of sortedEntries) {
-      const entryDate = new Date(entry.created_at)
-      entryDate.setHours(0, 0, 0, 0)
+    // Check if the most recent entry is today or yesterday
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
 
-      const diffDays = Math.floor((lastDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
+    const mostRecentDate = uniqueDates[0]
+    
+    // If the most recent entry is not today or yesterday, streak is broken
+    if (mostRecentDate !== today.getTime() && mostRecentDate !== yesterday.getTime()) {
+      return 0
+    }
 
-      if (diffDays === 0 || diffDays === 1) {
+    // Count consecutive days
+    let currentStreak = 1
+    for (let i = 1; i < uniqueDates.length; i++) {
+      const currentDate = uniqueDates[i - 1]
+      const previousDate = uniqueDates[i]
+      const diffDays = (currentDate - previousDate) / (1000 * 60 * 60 * 24)
+
+      if (diffDays === 1) {
         currentStreak++
-        lastDate = entryDate
       } else {
         break
       }
@@ -104,69 +115,34 @@ export default function MoodTrackerPage() {
     return uniqueDates.size
   }
 
-  const loadMoodEntries = async (userId: string) => {
-    try {
-      const { data, error: fetchError } = await supabase
-        .from("mood_entries")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: true })
-
-      if (fetchError) throw fetchError
-
-      const entriesWithLabels = data.map((entry) => ({
-        ...entry,
-        mood_label: MOOD_LABELS[entry.mood_score - 1] || "Unknown",
-      }))
-
-      setEntries(entriesWithLabels)
-      setStreak(calculateStreak(entriesWithLabels))
-      setTotalDays(calculateTotalDays(entriesWithLabels))
-    } catch (err) {
-      console.error("Error loading mood entries:", err)
-      setError("Failed to load mood history")
-    }
-  }
-
-  const handleAddMood = async (e: React.FormEvent) => {
+  const handleAddMood = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
-
     setLoading(true)
     setError("")
 
     try {
-      const { error: insertError } = await supabase.from("mood_entries").insert({
-        user_id: user.id,
+      const newEntry: MoodEntry = {
+        id: Date.now().toString(),
         mood_score: moodScore,
         mood_label: MOOD_LABELS[moodScore - 1],
-        notes: notes || null,
-      })
+        notes: notes || "",
+        created_at: new Date().toISOString(),
+      }
 
-      if (insertError) throw insertError
-
+      const updatedEntries = [...entries, newEntry]
+      setEntries(updatedEntries)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedEntries))
+      
+      setStreak(calculateStreak(updatedEntries))
+      setTotalDays(calculateTotalDays(updatedEntries))
       setNotes("")
       setMoodScore(5)
-      await loadMoodEntries(user.id)
     } catch (err) {
       console.error("Error adding mood:", err)
       setError("Failed to save mood entry")
     } finally {
       setLoading(false)
     }
-  }
-
-  if (!user) {
-    return (
-      <main className="min-h-screen bg-gradient-to-b from-background to-primary/5 py-8">
-        <div className="max-w-4xl mx-auto px-4">
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>Please sign in to use the mood tracker.</AlertDescription>
-          </Alert>
-        </div>
-      </main>
-    )
   }
 
   // Prepare chart data
@@ -183,15 +159,16 @@ export default function MoodTrackerPage() {
   const worstMood = entries.length > 0 ? Math.min(...entries.map((e) => e.mood_score)) : 0
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background to-primary/5 py-8">
-      <div className="max-w-6xl mx-auto px-4 space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-primary mb-2">Mood Tracker</h1>
-          <p className="text-muted-foreground">
-            Track your emotional patterns and discover insights about your wellness
-          </p>
-        </div>
+    <AuthGuard>
+      <main className="min-h-screen bg-gradient-to-b from-background to-primary/5 py-8">
+        <div className="max-w-6xl mx-auto px-4 space-y-8">
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl font-bold text-primary mb-2">Mood Tracker</h1>
+            <p className="text-muted-foreground">
+              Track your emotional patterns and discover insights about your wellness
+            </p>
+          </div>
 
         {entries.length > 0 && (
           <div className="grid md:grid-cols-2 gap-4">
@@ -468,5 +445,6 @@ export default function MoodTrackerPage() {
         )}
       </div>
     </main>
+    </AuthGuard>
   )
 }

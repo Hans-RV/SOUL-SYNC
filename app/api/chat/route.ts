@@ -64,22 +64,50 @@ export async function POST(request: Request) {
       maxTokens: 500,
     })
 
-    // Simple emotion detection based on keywords
-    const emotionKeywords: Record<string, string> = {
-      happy: ["happy", "great", "wonderful", "excited", "amazing", "love"],
-      sad: ["sad", "depressed", "down", "unhappy", "miserable", "lonely"],
-      anxious: ["anxious", "worried", "nervous", "stressed", "overwhelmed", "panic"],
-      angry: ["angry", "frustrated", "mad", "furious", "irritated"],
-      calm: ["calm", "peaceful", "relaxed", "serene", "tranquil"],
+    // Enhanced emotion detection based on keywords
+    const emotionKeywords: Record<string, string[]> = {
+      crisis: [
+        "suicide", "suicidal", "suicde", "kill myself", "end my life", "want to die", 
+        "don't want to live", "self harm", "self-harm", "hurt myself", "cutting",
+        "overdose", "end it all", "no reason to live", "better off dead", "kill me",
+        "take my life", "harm myself", "death", "dying", "hopeless"
+      ],
+      sad: [
+        "sad", "depressed", "depression", "down", "unhappy", "miserable", "lonely",
+        "crying", "cry", "tears", "heartbroken", "grief", "loss", "empty", "numb",
+        "worthless", "useless", "failure", "hate myself", "broken"
+      ],
+      anxious: [
+        "anxious", "anxiety", "worried", "worry", "nervous", "stressed", "stress",
+        "overwhelmed", "panic", "panicking", "scared", "fear", "afraid", "terrified",
+        "can't breathe", "heart racing", "trembling", "shaking", "restless"
+      ],
+      angry: [
+        "angry", "frustrated", "mad", "furious", "irritated", "annoyed", "rage",
+        "hate", "resentment", "bitter", "upset", "pissed", "enraged"
+      ],
+      happy: [
+        "happy", "great", "wonderful", "excited", "amazing", "love", "joy", "joyful",
+        "grateful", "thankful", "blessed", "content", "pleased", "delighted", "glad"
+      ],
+      calm: [
+        "calm", "peaceful", "relaxed", "serene", "tranquil", "at peace", "centered",
+        "grounded", "balanced", "mindful", "present"
+      ],
     }
 
     let detectedEmotion = "neutral"
     const lowerMessage = message.toLowerCase()
 
-    for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
-      if (keywords.some((keyword) => lowerMessage.includes(keyword))) {
-        detectedEmotion = emotion
-        break
+    // Check for crisis first (highest priority)
+    if (emotionKeywords.crisis.some((keyword) => lowerMessage.includes(keyword))) {
+      detectedEmotion = "crisis"
+    } else {
+      for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
+        if (emotion !== "crisis" && keywords.some((keyword) => lowerMessage.includes(keyword))) {
+          detectedEmotion = emotion
+          break
+        }
       }
     }
 

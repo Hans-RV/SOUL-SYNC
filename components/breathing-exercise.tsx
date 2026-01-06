@@ -9,6 +9,7 @@ export function BreathingExercise() {
   const [isActive, setIsActive] = useState(false)
   const [phase, setPhase] = useState<"inhale" | "hold" | "exhale">("inhale")
   const [count, setCount] = useState(0)
+  const [cycle, setCycle] = useState(1)
 
   const phases = {
     inhale: { duration: 4, label: "Breathe In", color: "from-primary to-secondary" },
@@ -19,43 +20,48 @@ export function BreathingExercise() {
   const startExercise = () => {
     setIsActive(true)
     setPhase("inhale")
-    setCount(0)
+    setCount(4)
+    setCycle(1)
 
     let currentPhase: "inhale" | "hold" | "exhale" = "inhale"
-    let currentCount = 0
-    let cycleCount = 0
+    let currentCount = 4
+    let cycleCount = 1
 
     const interval = setInterval(() => {
-      currentCount++
+      currentCount--
 
-      if (currentCount >= phases[currentPhase].duration) {
-        currentCount = 0
-
+      if (currentCount <= 0) {
         if (currentPhase === "inhale") {
           currentPhase = "hold"
+          currentCount = 4
         } else if (currentPhase === "hold") {
           currentPhase = "exhale"
+          currentCount = 4
         } else {
-          currentPhase = "inhale"
           cycleCount++
 
-          if (cycleCount >= 5) {
+          if (cycleCount > 5) {
             clearInterval(interval)
             setIsActive(false)
             setPhase("inhale")
             setCount(0)
+            setCycle(1)
             return
           }
+
+          currentPhase = "inhale"
+          currentCount = 4
+          setCycle(cycleCount)
         }
+
+        setPhase(currentPhase)
       }
 
-      setPhase(currentPhase)
       setCount(currentCount)
     }, 1000)
   }
 
   const currentPhaseData = phases[phase]
-  const progress = (count / currentPhaseData.duration) * 100
 
   return (
     <Card className="border-primary/10 bg-card/50 backdrop-blur">
@@ -73,18 +79,18 @@ export function BreathingExercise() {
               isActive ? "scale-100" : "scale-75"
             }`}
             style={{
-              opacity: 0.3 + (progress / 100) * 0.7,
+              opacity: isActive ? 0.5 + (count / 4) * 0.5 : 0.5,
             }}
           >
             <div className="text-center">
               <p className="text-sm font-semibold text-foreground">{currentPhaseData.label}</p>
-              <p className="text-2xl font-bold text-foreground">{currentPhaseData.duration - count}</p>
+              <p className="text-2xl font-bold text-foreground">{isActive ? count : 4}</p>
             </div>
           </div>
 
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              {isActive ? `Cycle ${Math.floor(count / 12) + 1} of 5` : "Ready to begin?"}
+              {isActive ? `Cycle ${cycle} of 5` : "Ready to begin?"}
             </p>
           </div>
         </div>

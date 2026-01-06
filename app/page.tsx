@@ -1,28 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/lib/auth/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { MessageCircle, BarChart3, Sparkles, Heart, Brain, Zap } from "lucide-react"
-import type { User } from "@supabase/supabase-js"
 import { Footer } from "@/components/footer"
 
 export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null)
-  const supabase = createClient()
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-    }
-
-    getUser()
-  }, [supabase])
+  const { user } = useAuth()
 
   const features = [
     {
@@ -83,17 +69,6 @@ export default function HomePage() {
                 Start Chatting
               </Button>
             </Link>
-            {!user && (
-              <Link href="/auth/sign-up">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-primary/20 text-primary hover:bg-primary/10 gap-2 w-full sm:w-auto bg-transparent"
-                >
-                  Create Account
-                </Button>
-              </Link>
-            )}
           </div>
         </div>
 
@@ -136,17 +111,6 @@ export default function HomePage() {
                 Chat Now
               </Button>
             </Link>
-            {!user && (
-              <Link href="/auth/sign-up">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-primary/20 text-primary hover:bg-primary/10 w-full sm:w-auto bg-transparent"
-                >
-                  Sign Up Free
-                </Button>
-              </Link>
-            )}
           </CardContent>
         </Card>
       </section>
