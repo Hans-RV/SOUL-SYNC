@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Script from "next/script"
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { User, Chrome } from "lucide-react"
 
-export default function LoginPage() {
+function LoginContent() {
   const [error, setError] = useState("")
   const [googleLoading, setGoogleLoading] = useState(false)
   const [buttonRendered, setButtonRendered] = useState(false)
@@ -153,5 +153,13 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   )
 }
